@@ -59,7 +59,8 @@ ow_engine_init_name (struct ow_engine *engine, uint8_t bus, uint8_t address)
   snprintf (engine->name, OW_LABEL_MAX_LEN, "%s@%03d,%03d",
 	    engine->device_desc.name, bus, address);
   // ow_engine_load_overbridge_name (engine);
-  strncpy (engine->overbridge_name, "Analog Four MKI", strlen("Analog Four MKI") + 1);
+  strncpy (engine->overbridge_name, "Analog Four MKI",
+	   strlen ("Analog Four MKI") + 1);
 }
 
 static int
@@ -602,6 +603,25 @@ ow_engine_init_mem (struct ow_engine *engine,
   engine->usb.xfr_control_in_data = malloc (OB_NAME_MAX_LEN);
 }
 
+static ow_err_t
+ow_detach_driver (struct ow_engine *engine, int interface_number)
+{
+  int err = libusb_kernel_driver_active (engine->usb.device_handle, 1);
+  if (err == 1)
+    {
+      debug_print (1, "Kernel driver active on interface %d. Detaching...\n",
+		   interface_number);
+      err = libusb_detach_kernel_driver (engine->usb.device_handle,
+					 interface_number);
+    }
+  else if (err == 0)
+    {
+      debug_print (1, "No kernel driver active on interface %d\n",
+		   interface_number);
+    }
+  return err;
+}
+
 // initialization taken from sniffed session
 
 static ow_err_t
@@ -614,10 +634,10 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
   engine->usb.xfr_timeout = xfr_timeout;
   debug_print (1, "USB transfer timeout: %u\n", engine->usb.xfr_timeout);
 
-  err = libusb_set_configuration (engine->usb.device_handle, 1);
-  if (LIBUSB_SUCCESS != err)
+  err = ow_detach_driver (engine, 0);
+  if (err < 0)
     {
-      ret = OW_USB_ERROR_CANT_SET_USB_CONFIG;
+      ret = OW_USB_ERROR_DETACHING_DRIVER;
       goto end;
     }
   err = libusb_claim_interface (engine->usb.device_handle, 0);
@@ -630,6 +650,12 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
+      goto end;
+    }
+  err = ow_detach_driver (engine, 1);
+  if (err < 0)
+    {
+      ret = OW_USB_ERROR_DETACHING_DRIVER;
       goto end;
     }
   err = libusb_claim_interface (engine->usb.device_handle, 1);
@@ -841,6 +867,7 @@ static const char *ob_err_strgs[] = {
   "ok",
   "generic error",
   "libusb init failed",
+  "can't detach kernel driver",
   "can't open device",
   "can't set usb config",
   "can't claim usb interface",
