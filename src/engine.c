@@ -58,7 +58,8 @@ ow_engine_init_name (struct ow_engine *engine, uint8_t bus, uint8_t address)
 {
   snprintf (engine->name, OW_LABEL_MAX_LEN, "%s@%03d,%03d",
 	    engine->device_desc.name, bus, address);
-  ow_engine_load_overbridge_name (engine);
+  // ow_engine_load_overbridge_name (engine);
+  strncpy (engine->overbridge_name, "Analog Four MKI", strlen("Analog Four MKI") + 1);
 }
 
 static int
@@ -619,25 +620,25 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_SET_USB_CONFIG;
       goto end;
     }
+  err = libusb_claim_interface (engine->usb.device_handle, 0);
+  if (LIBUSB_SUCCESS != err)
+    {
+      ret = OW_USB_ERROR_CANT_CLAIM_IF;
+      goto end;
+    }
+  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 7);
+  if (LIBUSB_SUCCESS != err)
+    {
+      ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
+      goto end;
+    }
   err = libusb_claim_interface (engine->usb.device_handle, 1);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto end;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 3);
-  if (LIBUSB_SUCCESS != err)
-    {
-      ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
-      goto end;
-    }
-  err = libusb_claim_interface (engine->usb.device_handle, 2);
-  if (LIBUSB_SUCCESS != err)
-    {
-      ret = OW_USB_ERROR_CANT_CLAIM_IF;
-      goto end;
-    }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 2, 3);
+  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 7);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
@@ -958,8 +959,8 @@ run_audio_o2p_midi (void *data)
   //status == OW_ENGINE_STATUS_BOOT
 
   //Both these calls always need to be called and can not be skipped.
-  prepare_cycle_in_audio (engine);
-  prepare_cycle_out_audio (engine);
+  // prepare_cycle_in_audio (engine);
+  // prepare_cycle_out_audio (engine);
   if (engine->context->options & OW_ENGINE_OPTION_O2P_MIDI)
     {
       prepare_cycle_in_midi (engine);
