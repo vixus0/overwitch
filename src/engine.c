@@ -507,8 +507,8 @@ prepare_cycle_out_midi (struct ow_engine *engine)
 static void
 usb_shutdown (struct ow_engine *engine)
 {
+  libusb_release_interface (engine->usb.device_handle, 0);
   libusb_release_interface (engine->usb.device_handle, 1);
-  libusb_release_interface (engine->usb.device_handle, 2);
   libusb_release_interface (engine->usb.device_handle, 3);
   libusb_close (engine->usb.device_handle);
   libusb_exit (engine->usb.context);
@@ -631,105 +631,93 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
 {
   int err;
   ow_err_t ret = OW_OK;
+  libusb_device *device;
+  struct libusb_config_descriptor *config;
 
   engine->usb.xfr_timeout = xfr_timeout;
   debug_print (1, "USB transfer timeout: %u\n", engine->usb.xfr_timeout);
 
-  err = ow_detach_driver (engine, 0);
-  if (err < 0)
+  device = libusb_get_device (engine->usb.device_handle);
+  err = libusb_get_config_descriptor (device, 1, &config);
+  if (err)
     {
-      ret = OW_USB_ERROR_DETACHING_DRIVER;
+      ret = OW_USB_ERROR_GETTING_CONFIG;
       goto end;
     }
-  err = ow_detach_driver (engine, 1);
-  if (err < 0)
+  for (int i = 0; i < config->bNumInterfaces; i++)
     {
-      ret = OW_USB_ERROR_DETACHING_DRIVER;
-      goto end;
-    }
-  err = ow_detach_driver (engine, 2);
-  if (err < 0)
-    {
-      ret = OW_USB_ERROR_DETACHING_DRIVER;
-      goto end;
-    }
-  err = ow_detach_driver (engine, 3);
-  if (err < 0)
-    {
-      ret = OW_USB_ERROR_DETACHING_DRIVER;
-      goto end;
-    }
-  err = ow_detach_driver (engine, 4);
-  if (err < 0)
-    {
-      ret = OW_USB_ERROR_DETACHING_DRIVER;
-      goto end;
+      err = ow_detach_driver (engine, i);
+      if (err < 0)
+	{
+	  ret = OW_USB_ERROR_DETACHING_DRIVER;
+	  goto cleanup;
+	}
     }
   err = libusb_set_configuration (engine->usb.device_handle, 1);
   if (err < 0)
     {
       ret = OW_USB_ERROR_CANT_SET_USB_CONFIG;
-      goto end;
+      goto cleanup;
     }
   err = libusb_claim_interface (engine->usb.device_handle, 0);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
-      goto end;
+      goto cleanup;
     }
   err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 7);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
-      goto end;
+      goto cleanup;
     }
   err = libusb_claim_interface (engine->usb.device_handle, 1);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
-      goto end;
+      goto cleanup;
     }
   err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 7);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
-      goto end;
+      goto cleanup;
     }
   err = libusb_claim_interface (engine->usb.device_handle, 3);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
-      goto end;
+      goto cleanup;
     }
   err = libusb_set_interface_alt_setting (engine->usb.device_handle, 3, 0);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
-      goto end;
+      goto cleanup;
     }
   err = libusb_clear_halt (engine->usb.device_handle, AUDIO_IN_EP);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLEAR_EP;
-      goto end;
+      goto cleanup;
     }
   err = libusb_clear_halt (engine->usb.device_handle, AUDIO_OUT_EP);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLEAR_EP;
-      goto end;
+      goto cleanup;
     }
   err = libusb_clear_halt (engine->usb.device_handle, MIDI_IN_EP);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLEAR_EP;
-      goto end;
+      goto cleanup;
     }
   err = libusb_clear_halt (engine->usb.device_handle, MIDI_OUT_EP);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLEAR_EP;
-      goto end;
+      goto cleanup;
     }
   err = prepare_transfers (engine);
   if (LIBUSB_SUCCESS != err)
@@ -737,6 +725,8 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_PREPARE_TRANSFER;
     }
 
+cleanup:
+  libusb_free_config_descriptor (config);
 end:
   if (ret == OW_OK)
     {
@@ -892,6 +882,7 @@ static const char *ob_err_strgs[] = {
   "ok",
   "generic error",
   "libusb init failed",
+  "can't get device configuration",
   "can't detach kernel driver",
   "can't open device",
   "can't set usb config",
