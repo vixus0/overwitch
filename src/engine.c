@@ -48,6 +48,8 @@
 
 #define INT32_TO_FLOAT32_SCALE ((float) (1.0f / INT_MAX))
 
+#define ISO_PACKETS 1
+
 static void prepare_cycle_in_audio ();
 static void prepare_cycle_out_audio ();
 static void prepare_cycle_in_midi ();
@@ -433,12 +435,11 @@ cb_xfr_midi_out (struct libusb_transfer *xfr)
 static void
 prepare_cycle_out_audio (struct ow_engine *engine)
 {
-  libusb_fill_interrupt_transfer (engine->usb.xfr_audio_out,
-				  engine->usb.device_handle, AUDIO_OUT_EP,
-				  engine->usb.xfr_audio_out_data,
-				  engine->usb.xfr_audio_out_data_len,
-				  cb_xfr_audio_out, engine,
-				  engine->usb.xfr_timeout);
+  libusb_fill_iso_transfer (engine->usb.xfr_audio_out,
+			    engine->usb.device_handle, AUDIO_OUT_EP,
+			    engine->usb.xfr_audio_out_data,
+			    engine->usb.xfr_audio_out_data_len, ISO_PACKETS,
+			    cb_xfr_audio_out, engine, XFR_TIMEOUT);
 
   int err = libusb_submit_transfer (engine->usb.xfr_audio_out);
   if (err)
@@ -452,12 +453,11 @@ prepare_cycle_out_audio (struct ow_engine *engine)
 static void
 prepare_cycle_in_audio (struct ow_engine *engine)
 {
-  libusb_fill_interrupt_transfer (engine->usb.xfr_audio_in,
-				  engine->usb.device_handle, AUDIO_IN_EP,
-				  engine->usb.xfr_audio_in_data,
-				  engine->usb.xfr_audio_in_data_len,
-				  cb_xfr_audio_in, engine,
-				  engine->usb.xfr_timeout);
+  libusb_fill_iso_transfer (engine->usb.xfr_audio_in,
+			    engine->usb.device_handle, AUDIO_IN_EP,
+			    engine->usb.xfr_audio_in_data,
+			    engine->usb.xfr_audio_in_data_len, ISO_PACKETS,
+			    cb_xfr_audio_in, engine, XFR_TIMEOUT);
 
   int err = libusb_submit_transfer (engine->usb.xfr_audio_in);
   if (err)
@@ -1002,7 +1002,7 @@ run_audio_o2p_midi (void *data)
   //status == OW_ENGINE_STATUS_BOOT
 
   //Both these calls always need to be called and can not be skipped.
-  // prepare_cycle_in_audio (engine);
+  prepare_cycle_in_audio (engine);
   // prepare_cycle_out_audio (engine);
   if (engine->context->options & OW_ENGINE_OPTION_O2P_MIDI)
     {
