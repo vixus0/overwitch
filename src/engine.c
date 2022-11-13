@@ -606,7 +606,8 @@ ow_engine_init_mem (struct ow_engine *engine,
 static ow_err_t
 ow_detach_driver (struct ow_engine *engine, int interface_number)
 {
-  int err = libusb_kernel_driver_active (engine->usb.device_handle, 1);
+  int err = libusb_kernel_driver_active (engine->usb.device_handle,
+					 interface_number);
   if (err == 1)
     {
       debug_print (1, "Kernel driver active on interface %d. Detaching...\n",
@@ -640,6 +641,18 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_DETACHING_DRIVER;
       goto end;
     }
+  err = ow_detach_driver (engine, 1);
+  if (err < 0)
+    {
+      ret = OW_USB_ERROR_DETACHING_DRIVER;
+      goto end;
+    }
+  err = libusb_set_configuration (engine->usb.device_handle, 1);
+  if (err < 0)
+    {
+      ret = OW_USB_ERROR_CANT_SET_USB_CONFIG;
+      goto end;
+    }
   err = libusb_claim_interface (engine->usb.device_handle, 0);
   if (LIBUSB_SUCCESS != err)
     {
@@ -650,12 +663,6 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
-      goto end;
-    }
-  err = ow_detach_driver (engine, 1);
-  if (err < 0)
-    {
-      ret = OW_USB_ERROR_DETACHING_DRIVER;
       goto end;
     }
   err = libusb_claim_interface (engine->usb.device_handle, 1);
