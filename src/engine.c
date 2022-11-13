@@ -647,7 +647,19 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_DETACHING_DRIVER;
       goto end;
     }
+  err = ow_detach_driver (engine, 2);
+  if (err < 0)
+    {
+      ret = OW_USB_ERROR_DETACHING_DRIVER;
+      goto end;
+    }
   err = ow_detach_driver (engine, 3);
+  if (err < 0)
+    {
+      ret = OW_USB_ERROR_DETACHING_DRIVER;
+      goto end;
+    }
+  err = ow_detach_driver (engine, 4);
   if (err < 0)
     {
       ret = OW_USB_ERROR_DETACHING_DRIVER;
