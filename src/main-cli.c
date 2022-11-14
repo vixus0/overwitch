@@ -280,12 +280,12 @@ main (int argc, char *argv[])
 
   if (nflg + dflg == 0)
     {
-      return run_all (blocks_per_transfer, xfr_timeout, quality, priority);
+      return run_all (2, xfr_timeout, quality, priority);
     }
   else if (nflg + dflg == 1)
     {
-      return run_single (device_num, device_name, blocks_per_transfer,
-			 xfr_timeout, quality, priority);
+      return run_single (device_num, device_name, 2, xfr_timeout, quality,
+                         priority);
     }
   else
     {
