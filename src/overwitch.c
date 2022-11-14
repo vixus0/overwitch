@@ -156,9 +156,20 @@ static const struct ow_device_desc_static STAKT_DESC = {
      "Delay/Reverb L", "Delay/Reverb R", "Input L", "Input R"}
 };
 
+static const struct ow_device_desc_static AFMKI_DESC = {
+  .pid = AFMK1_PID,
+  .name = "Analog Four MKI",
+  .inputs = 2,
+  .outputs = 4,
+  .input_track_names =
+    {"Main L Input", "Main R Input"},
+  .output_track_names = {"Track 1", "Track 2", "Track 3", "Track 4"}
+};
+
 static const struct ow_device_desc_static *OB_DEVICE_DESCS[] = {
-  &DIGITAKT_DESC, &DIGITONE_DESC, &AFMK2_DESC, &ARMK2_DESC, &DKEYS_DESC,
-  &AHMK1_DESC, &AHMK2_DESC, &AHFX_DESC, &STAKT_DESC, NULL
+  // &DIGITAKT_DESC, &DIGITONE_DESC, &AFMK2_DESC, &ARMK2_DESC, &DKEYS_DESC,
+  // &AHMK1_DESC, &AHMK2_DESC, &STAKT_DESC, NULL
+  &AFMKI_DESC, NULL
 };
 #endif
 
