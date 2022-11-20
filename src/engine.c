@@ -51,6 +51,8 @@
 static void prepare_cycle_in_audio ();
 static void prepare_cycle_out_audio ();
 static void prepare_cycle_in_midi ();
+static void cb_xfr_audio_in (struct libusb_transfer *);
+static void cb_xfr_audio_out (struct libusb_transfer *);
 static void ow_engine_load_overbridge_name (struct ow_engine *);
 
 static void
