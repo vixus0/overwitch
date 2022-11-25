@@ -671,7 +671,7 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto cleanup;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 4);	//wMaxPacketSize is 398 bytes; EP is 0x83. 2 OB blocks, 4 tracks, 7 frames each.
+  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 4);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
@@ -683,7 +683,7 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto cleanup;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 4);	//wMaxPacketSize is 496 bytes; EP is 0x03. 2 OB blocks, 2 tracks, 7 frames each.
+  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 4);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
@@ -1008,7 +1008,7 @@ run_audio_o2p_midi (void *data)
 
   //Both these calls always need to be called and can not be skipped.
   prepare_cycle_in_audio (engine);
-  // prepare_cycle_out_audio (engine);
+  prepare_cycle_out_audio (engine);
   if (engine->context->options & OW_ENGINE_OPTION_O2P_MIDI)
     {
       prepare_cycle_in_midi (engine);
