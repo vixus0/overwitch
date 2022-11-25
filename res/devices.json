@@ -1,6 +1,7 @@
 [{
 	"pid": 12,
 	"name": "Digitakt",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input"
@@ -22,6 +23,7 @@
 }, {
 	"pid": 20,
 	"name": "Digitone",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input"
@@ -43,6 +45,7 @@
 }, {
 	"pid": 14,
 	"name": "Analog Four MKII",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input",
@@ -64,6 +67,7 @@
 }, {
 	"pid": 16,
 	"name": "Analog Rytm MKII",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input",
@@ -95,6 +99,7 @@
 }, {
 	"pid": 28,
 	"name": "Digitone Keys",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input"
@@ -116,6 +121,7 @@
 }, {
 	"pid": 10,
 	"name": "Analog Heat",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input",
@@ -131,6 +137,7 @@
 }, {
 	"pid": 22,
 	"name": "Analog Heat MKII",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input",
@@ -161,6 +168,7 @@
 }, {
 	"pid": 30,
 	"name": "Syntakt",
+	"type": 2,
 	"input_track_names": [
 		"Main L Input",
 		"Main R Input",
@@ -192,5 +200,33 @@
 		"Delay/Reverb R",
 		"Input L",
 		"Input R"
+	]
+}, {
+	"pid": 4,
+	"name": "Analog Four MKI",
+	"type": 1,
+	"input_track_names": [
+		"Main L Input",
+		"Main R Input"
+	],
+	"output_track_names": [
+		"Track 1",
+		"Track 2",
+		"Track 3",
+		"Track 4"
+	]
+}, {
+	"pid": 8,
+	"name": "Analog Rytm MKI",
+	"type": 1,
+	"input_track_names": [
+		"Main L Input",
+		"Main R Input"
+	],
+	"output_track_names": [
+		"Track 1",
+		"Track 2",
+		"Track 3",
+		"Track 4"
 	]
 }]

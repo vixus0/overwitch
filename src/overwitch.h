@@ -109,6 +109,13 @@ typedef enum
   OW_ENGINE_OPTION_DLL = 16
 } ow_engine_option_t;
 
+typedef enum
+{
+  OW_TYPE_NONE = 0,
+  OW_TYPE_OVERBRIDGE_V1 = 1,
+  OW_TYPE_OVERBRIDGE_V2 = 2
+} ow_type_t;
+
 struct ow_context
 {
   //Functions
@@ -138,16 +145,22 @@ struct ow_device_desc
 {
   uint16_t pid;
   char *name;
+  ow_type_t type;
   int inputs;
   int outputs;
   char **input_track_names;
   char **output_track_names;
+  int audio_if_1;
+  int audio_as_1;
+  int audio_if_2;
+  int audio_as_2;
 };
 
 struct ow_device_desc_static
 {
   uint16_t pid;
   char *name;
+  ow_type_t type;
   int inputs;
   int outputs;
   char *input_track_names[OB_MAX_TRACKS];

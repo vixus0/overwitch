@@ -60,42 +60,48 @@ ow_engine_init_name (struct ow_engine *engine, uint8_t bus, uint8_t address)
 {
   snprintf (engine->name, OW_LABEL_MAX_LEN, "%s@%03d,%03d",
 	    engine->device_desc.name, bus, address);
-  // ow_engine_load_overbridge_name (engine);
-  strncpy (engine->overbridge_name, "Analog Four MKI",
-	   strlen ("Analog Four MKI") + 1);
+  ow_engine_load_overbridge_name (engine);
 }
 
 static int
 prepare_transfers (struct ow_engine *engine)
 {
-  engine->usb.xfr_audio_in =
-    libusb_alloc_transfer (engine->blocks_per_transfer);
-  libusb_fill_iso_transfer (engine->usb.xfr_audio_in,
-			    engine->usb.device_handle, AUDIO_IN_EP,
-			    engine->usb.xfr_audio_in_data,
-			    engine->usb.xfr_audio_in_data_len,
-			    engine->blocks_per_transfer, cb_xfr_audio_in,
-			    engine, XFR_TIMEOUT);
-  libusb_set_iso_packet_lengths (engine->usb.xfr_audio_in,
-				 engine->usb.audio_in_blk_len);
+  int iso_packets =
+    engine->device_desc.type ==
+    OW_TYPE_OVERBRIDGE_V1 ? engine->blocks_per_transfer : 0;
+
+  engine->usb.xfr_audio_in = libusb_alloc_transfer (iso_packets);
   if (!engine->usb.xfr_audio_in)
     {
       return -ENOMEM;
     }
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+    {
+      libusb_fill_iso_transfer (engine->usb.xfr_audio_in,
+				engine->usb.device_handle, AUDIO_IN_EP,
+				engine->usb.xfr_audio_in_data,
+				engine->usb.xfr_audio_in_data_len,
+				engine->blocks_per_transfer, cb_xfr_audio_in,
+				engine, XFR_TIMEOUT);
+      libusb_set_iso_packet_lengths (engine->usb.xfr_audio_in,
+				     engine->usb.audio_in_blk_len);
+    }
 
-  engine->usb.xfr_audio_out =
-    libusb_alloc_transfer (engine->blocks_per_transfer);
-  libusb_fill_iso_transfer (engine->usb.xfr_audio_out,
-			    engine->usb.device_handle, AUDIO_OUT_EP,
-			    engine->usb.xfr_audio_out_data,
-			    engine->usb.xfr_audio_out_data_len,
-			    engine->blocks_per_transfer, cb_xfr_audio_out,
-			    engine, XFR_TIMEOUT);
-  libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out,
-				 engine->usb.audio_out_blk_len);
+  engine->usb.xfr_audio_out = libusb_alloc_transfer (iso_packets);
   if (!engine->usb.xfr_audio_out)
     {
       return -ENOMEM;
+    }
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+    {
+      libusb_fill_iso_transfer (engine->usb.xfr_audio_out,
+				engine->usb.device_handle, AUDIO_OUT_EP,
+				engine->usb.xfr_audio_out_data,
+				engine->usb.xfr_audio_out_data_len,
+				engine->blocks_per_transfer, cb_xfr_audio_out,
+				engine, XFR_TIMEOUT);
+      libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out,
+				     engine->usb.audio_out_blk_len);
     }
 
   engine->usb.xfr_midi_in = libusb_alloc_transfer (0);
@@ -453,6 +459,15 @@ cb_xfr_midi_out (struct libusb_transfer *xfr)
 static void
 prepare_cycle_out_audio (struct ow_engine *engine)
 {
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
+    {
+      libusb_fill_interrupt_transfer (engine->usb.xfr_audio_out,
+				      engine->usb.device_handle, AUDIO_OUT_EP,
+				      engine->usb.xfr_audio_out_data,
+				      engine->usb.xfr_audio_out_data_len,
+				      cb_xfr_audio_out, engine, XFR_TIMEOUT);
+    }
+
   int err = libusb_submit_transfer (engine->usb.xfr_audio_out);
   if (err)
     {
@@ -465,6 +480,15 @@ prepare_cycle_out_audio (struct ow_engine *engine)
 static void
 prepare_cycle_in_audio (struct ow_engine *engine)
 {
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
+    {
+      libusb_fill_interrupt_transfer (engine->usb.xfr_audio_in,
+				      engine->usb.device_handle, AUDIO_IN_EP,
+				      engine->usb.xfr_audio_in_data,
+				      engine->usb.xfr_audio_in_data_len,
+				      cb_xfr_audio_in, engine, XFR_TIMEOUT);
+    }
+
   int err = libusb_submit_transfer (engine->usb.xfr_audio_in);
   if (err)
     {
@@ -513,8 +537,10 @@ prepare_cycle_out_midi (struct ow_engine *engine)
 static void
 usb_shutdown (struct ow_engine *engine)
 {
-  libusb_release_interface (engine->usb.device_handle, 0);
-  libusb_release_interface (engine->usb.device_handle, 1);
+  libusb_release_interface (engine->usb.device_handle,
+			    engine->device_desc.audio_if_1);
+  libusb_release_interface (engine->usb.device_handle,
+			    engine->device_desc.audio_if_2);
   libusb_release_interface (engine->usb.device_handle, 3);
   libusb_close (engine->usb.device_handle);
   libusb_exit (engine->usb.context);
@@ -665,25 +691,35 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_SET_USB_CONFIG;
       goto cleanup;
     }
-  err = libusb_claim_interface (engine->usb.device_handle, 0);
+  err =
+    libusb_claim_interface (engine->usb.device_handle,
+			    engine->device_desc.audio_if_1);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto cleanup;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 4);
+  err =
+    libusb_set_interface_alt_setting (engine->usb.device_handle,
+				      engine->device_desc.audio_if_1,
+				      engine->device_desc.audio_as_1);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
       goto cleanup;
     }
-  err = libusb_claim_interface (engine->usb.device_handle, 1);
+  err =
+    libusb_claim_interface (engine->usb.device_handle,
+			    engine->device_desc.audio_if_2);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto cleanup;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 4);
+  err =
+    libusb_set_interface_alt_setting (engine->usb.device_handle,
+				      engine->device_desc.audio_if_2,
+				      engine->device_desc.audio_as_2);
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;

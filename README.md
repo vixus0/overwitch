@@ -8,7 +8,7 @@ The papers [Controlling adaptive resampling](https://kokkinizita.linuxaudio.org/
 
 At the moment, it provides support for all Overbridge 2 devices, which are Analog Four MKII, Analog Rytm MKII, Digitakt, Digitone, Digitone Keys, Analog Heat, Analog Heat MKII and Syntakt.
 
-Overbridge 1 devices, which are Analog Four MKI, Analog Keys and Analog Rytm MKI, are not supported yet.
+Overbridge 1 devices support, which are Analog Four MKI, Analog Keys and Analog Rytm MKI, is in the works.
 
 Overwitch consists of 4 different binaries: `overwitch`, which is a GUI application, `overwitch-cli` which offers the same functionality for the command line; and `overwitch-play` and `overwitch-record` which do not integrate with JACK at all but stream the audio from and to a WAVE file.
 
@@ -321,6 +321,7 @@ This is a self-explanatory device definition from `res/devices.json`. The file i
 {
   "pid": 12,
   "name": "Digitakt",
+  "type": 2,
   "input_track_names": [
     "Main L Input",
     "Main R Input"
@@ -356,6 +357,7 @@ Notice that the definition of the device must match the device itself, so output
 static const struct overbridge_device_desc_static ARMK2_DESC = {
   .pid = ARMK2_PID,
   .name = "Analog Rytm MKII",
+  .type = OW_OVERBRIDGE_V2,
   .inputs = 12,
   .outputs = 12,
   .input_track_names =
