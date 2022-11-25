@@ -75,7 +75,8 @@ prepare_transfers (struct ow_engine *engine)
 			    engine->usb.xfr_audio_in_data,
 			    engine->usb.xfr_audio_in_data_len, 1,
 			    cb_xfr_audio_in, engine, XFR_TIMEOUT);
-  libusb_set_iso_packet_lengths(engine->usb.xfr_audio_in, engine->usb.xfr_audio_in_data_len);
+  libusb_set_iso_packet_lengths (engine->usb.xfr_audio_in,
+				 engine->usb.xfr_audio_in_data_len);
   if (!engine->usb.xfr_audio_in)
     {
       return -ENOMEM;
@@ -88,7 +89,8 @@ prepare_transfers (struct ow_engine *engine)
 			    engine->usb.xfr_audio_out_data,
 			    engine->usb.xfr_audio_out_data_len, 1,
 			    cb_xfr_audio_out, engine, XFR_TIMEOUT);
-  libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out, engine->usb.xfr_audio_out_data_len);
+  libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out,
+				 engine->usb.xfr_audio_out_data_len);
   if (!engine->usb.xfr_audio_out)
     {
       return -ENOMEM;
@@ -667,7 +669,7 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto cleanup;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 4); //wMaxPacketSize is 398 bytes; EP is 0x83. 2 OB blocks, 4 tracks, 7 frames each.
+  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 0, 4);	//wMaxPacketSize is 398 bytes; EP is 0x83. 2 OB blocks, 4 tracks, 7 frames each.
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;
@@ -679,7 +681,7 @@ ow_engine_init (struct ow_engine *engine, unsigned int blocks_per_transfer,
       ret = OW_USB_ERROR_CANT_CLAIM_IF;
       goto cleanup;
     }
-  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 4); //wMaxPacketSize is 496 bytes; EP is 0x03. 2 OB blocks, 2 tracks, 7 frames each.
+  err = libusb_set_interface_alt_setting (engine->usb.device_handle, 1, 4);	//wMaxPacketSize is 496 bytes; EP is 0x03. 2 OB blocks, 2 tracks, 7 frames each.
   if (LIBUSB_SUCCESS != err)
     {
       ret = OW_USB_ERROR_CANT_SET_ALT_SETTING;

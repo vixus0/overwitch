@@ -161,8 +161,7 @@ static const struct ow_device_desc_static AFMKI_DESC = {
   .name = "Analog Four MKI",
   .inputs = 2,
   .outputs = 4,
-  .input_track_names =
-    {"Main L Input", "Main R Input"},
+  .input_track_names = {"Main L Input", "Main R Input"},
   .output_track_names = {"Track 1", "Track 2", "Track 3", "Track 4"}
 };
 
@@ -171,8 +170,7 @@ static const struct ow_device_desc_static ARMK1_DESC = {
   .name = "Analog Rytm MKI",
   .inputs = 2,
   .outputs = 4,
-  .input_track_names =
-    {"Main L Input", "Main R Input"},
+  .input_track_names = {"Main L Input", "Main R Input"},
   .output_track_names = {"BD", "SD", "RS/CP", "BT"}
 };
 
