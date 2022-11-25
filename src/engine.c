@@ -68,29 +68,31 @@ ow_engine_init_name (struct ow_engine *engine, uint8_t bus, uint8_t address)
 static int
 prepare_transfers (struct ow_engine *engine)
 {
-  //1 iso packet, total len is the size of one packet
-  engine->usb.xfr_audio_in = libusb_alloc_transfer (1);
+  engine->usb.xfr_audio_in =
+    libusb_alloc_transfer (engine->blocks_per_transfer);
   libusb_fill_iso_transfer (engine->usb.xfr_audio_in,
 			    engine->usb.device_handle, AUDIO_IN_EP,
 			    engine->usb.xfr_audio_in_data,
-			    engine->usb.xfr_audio_in_data_len, 1,
-			    cb_xfr_audio_in, engine, XFR_TIMEOUT);
+			    engine->usb.xfr_audio_in_data_len,
+			    engine->blocks_per_transfer, cb_xfr_audio_in,
+			    engine, XFR_TIMEOUT);
   libusb_set_iso_packet_lengths (engine->usb.xfr_audio_in,
-				 engine->usb.xfr_audio_in_data_len);
+				 engine->usb.audio_in_blk_len);
   if (!engine->usb.xfr_audio_in)
     {
       return -ENOMEM;
     }
 
-  //1 iso packet, total len is the size of one packet
-  engine->usb.xfr_audio_out = libusb_alloc_transfer (1);
+  engine->usb.xfr_audio_out =
+    libusb_alloc_transfer (engine->blocks_per_transfer);
   libusb_fill_iso_transfer (engine->usb.xfr_audio_out,
 			    engine->usb.device_handle, AUDIO_OUT_EP,
 			    engine->usb.xfr_audio_out_data,
-			    engine->usb.xfr_audio_out_data_len, 1,
-			    cb_xfr_audio_out, engine, XFR_TIMEOUT);
+			    engine->usb.xfr_audio_out_data_len,
+			    engine->blocks_per_transfer, cb_xfr_audio_out,
+			    engine, XFR_TIMEOUT);
   libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out,
-				 engine->usb.xfr_audio_out_data_len);
+				 engine->usb.audio_out_blk_len);
   if (!engine->usb.xfr_audio_out)
     {
       return -ENOMEM;
