@@ -48,9 +48,9 @@
 
 #define INT32_TO_FLOAT32_SCALE ((float) (1.0f / INT_MAX))
 
-static void prepare_cycle_in_audio ();
-static void prepare_cycle_out_audio ();
-static void prepare_cycle_in_midi ();
+static void prepare_cycle_audio_in_int ();
+static void prepare_cycle_audio_out_int ();
+static void prepare_cycle_midi_in ();
 static void cb_xfr_audio_in (struct libusb_transfer *);
 static void cb_xfr_audio_out (struct libusb_transfer *);
 static void ow_engine_load_overbridge_name (struct ow_engine *);
@@ -64,44 +64,76 @@ ow_engine_init_name (struct ow_engine *engine, uint8_t bus, uint8_t address)
 }
 
 static int
-prepare_transfers (struct ow_engine *engine)
+prepare_audio_iso_transfers (struct ow_engine *engine)
 {
-  int iso_packets =
-    engine->device_desc.type ==
-    OW_TYPE_OVERBRIDGE_V1 ? engine->blocks_per_transfer : 0;
+  int iso_packets = engine->blocks_per_transfer;
 
-  engine->usb.xfr_audio_in = libusb_alloc_transfer (iso_packets);
-  if (!engine->usb.xfr_audio_in)
+  for (int i = 0; i < OW_ISO_XFERS; i++)
     {
-      return -ENOMEM;
-    }
-  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
-    {
-      libusb_fill_iso_transfer (engine->usb.xfr_audio_in,
+      engine->usb.xfr_audio_in_iso[i] = libusb_alloc_transfer (iso_packets);
+      if (!engine->usb.xfr_audio_in_iso[i])
+	{
+	  return -ENOMEM;
+	}
+      libusb_fill_iso_transfer (engine->usb.xfr_audio_in_iso[i],
 				engine->usb.device_handle, AUDIO_IN_EP,
 				engine->usb.xfr_audio_in_data,
 				engine->usb.xfr_audio_in_data_len,
-				engine->blocks_per_transfer, cb_xfr_audio_in,
-				engine, XFR_TIMEOUT);
-      libusb_set_iso_packet_lengths (engine->usb.xfr_audio_in,
+				engine->blocks_per_transfer,
+				cb_xfr_audio_in, engine, XFR_TIMEOUT);
+      libusb_set_iso_packet_lengths (engine->usb.xfr_audio_in_iso[i],
 				     engine->usb.audio_in_blk_len);
-    }
 
-  engine->usb.xfr_audio_out = libusb_alloc_transfer (iso_packets);
-  if (!engine->usb.xfr_audio_out)
-    {
-      return -ENOMEM;
-    }
-  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
-    {
-      libusb_fill_iso_transfer (engine->usb.xfr_audio_out,
+      engine->usb.xfr_audio_out_iso[i] = libusb_alloc_transfer (iso_packets);
+      if (!engine->usb.xfr_audio_out_iso[i])
+	{
+	  return -ENOMEM;
+	}
+      libusb_fill_iso_transfer (engine->usb.xfr_audio_out_iso[i],
 				engine->usb.device_handle, AUDIO_OUT_EP,
 				engine->usb.xfr_audio_out_data,
 				engine->usb.xfr_audio_out_data_len,
-				engine->blocks_per_transfer, cb_xfr_audio_out,
-				engine, XFR_TIMEOUT);
-      libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out,
+				engine->blocks_per_transfer,
+				cb_xfr_audio_out, engine, XFR_TIMEOUT);
+      libusb_set_iso_packet_lengths (engine->usb.xfr_audio_out_iso[i],
 				     engine->usb.audio_out_blk_len);
+    }
+  return LIBUSB_SUCCESS;
+}
+
+static int
+prepare_audio_int_transfers (struct ow_engine *engine)
+{
+  engine->usb.xfr_audio_in_int = libusb_alloc_transfer (0);
+  if (!engine->usb.xfr_audio_in_int)
+    {
+      return -ENOMEM;
+    }
+
+  engine->usb.xfr_audio_out_int = libusb_alloc_transfer (0);
+  if (!engine->usb.xfr_audio_out_int)
+    {
+      return -ENOMEM;
+    }
+  return LIBUSB_SUCCESS;
+}
+
+static int
+prepare_transfers (struct ow_engine *engine)
+{
+  int err;
+
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+    {
+      err = prepare_audio_iso_transfers (engine);
+    }
+  else
+    {
+      err = prepare_audio_int_transfers (engine);
+    }
+  if (err)
+    {
+      return err;
     }
 
   engine->usb.xfr_midi_in = libusb_alloc_transfer (0);
@@ -131,11 +163,23 @@ prepare_transfers (struct ow_engine *engine)
   return LIBUSB_SUCCESS;
 }
 
+
 static void
 free_transfers (struct ow_engine *engine)
 {
-  libusb_free_transfer (engine->usb.xfr_audio_in);
-  libusb_free_transfer (engine->usb.xfr_audio_out);
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+    {
+      for (int i = 0; i < OW_ISO_XFERS; i++)
+	{
+	  libusb_free_transfer (engine->usb.xfr_audio_in_iso[i]);
+	  libusb_free_transfer (engine->usb.xfr_audio_out_iso[i]);
+	}
+    }
+  else
+    {
+      libusb_free_transfer (engine->usb.xfr_audio_in_int);
+      libusb_free_transfer (engine->usb.xfr_audio_out_int);
+    }
   libusb_free_transfer (engine->usb.xfr_midi_in);
   libusb_free_transfer (engine->usb.xfr_midi_out);
   libusb_free_transfer (engine->usb.xfr_control_in);
@@ -334,53 +378,70 @@ set_blocks:
 static void LIBUSB_CALL
 cb_xfr_audio_in (struct libusb_transfer *xfr)
 {
+  struct ow_engine *engine = xfr->user_data;
+
   if (xfr->status == LIBUSB_TRANSFER_COMPLETED)
     {
       if (xfr->length < xfr->actual_length)
 	{
-	  error_print
-	    ("o2p: incomplete USB audio transfer (%d B < %d B)\n",
-	     xfr->length, xfr->actual_length);
+	  error_print ("o2p: Incomplete transfer (%d B < %d B)\n",
+		       xfr->length, xfr->actual_length);
 	}
 
-      struct ow_engine *engine = xfr->user_data;
       if (engine->context->options & OW_ENGINE_OPTION_O2P_AUDIO)
 	{
 	  set_usb_input_data_blks (engine);
 	}
+
+      if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+	{
+	  libusb_submit_transfer (xfr);
+	}
     }
   else
     {
-      error_print ("o2p: Error on USB audio transfer: %s\n",
+      error_print ("o2p: Error on transfer: %s\n",
 		   libusb_error_name (xfr->status));
     }
-  // start new cycle even if this one did not succeed
-  prepare_cycle_in_audio (xfr->user_data);
+
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
+    {
+      // start new cycle even if this one did not succeed
+      prepare_cycle_audio_in_int (xfr->user_data);
+    }
 }
 
 static void LIBUSB_CALL
 cb_xfr_audio_out (struct libusb_transfer *xfr)
 {
+  struct ow_engine *engine = xfr->user_data;
+
   if (xfr->status == LIBUSB_TRANSFER_COMPLETED)
     {
       if (xfr->length < xfr->actual_length)
 	{
-	  error_print
-	    ("p2o: incomplete USB audio transfer (%d B < %d B)\n",
-	     xfr->length, xfr->actual_length);
+	  error_print ("p2o: Incomplete transfer (%d B < %d B)\n",
+		       xfr->length, xfr->actual_length);
+	}
+      if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+	{
+	  set_usb_output_data_blks (xfr->user_data);
+	  libusb_submit_transfer (xfr);
 	}
     }
   else
     {
-      error_print ("p2o: Error on USB audio transfer: %s\n",
+      error_print ("p2o: Error on transfer: %s\n",
 		   libusb_error_name (xfr->status));
     }
 
-  set_usb_output_data_blks (xfr->user_data);
-
-  // We have to make sure that the out cycle is always started after its callback
-  // Race condition on slower systems!
-  prepare_cycle_out_audio (xfr->user_data);
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
+    {
+      set_usb_output_data_blks (xfr->user_data);
+      // We have to make sure that the out cycle is always started after its callback
+      // Race condition on slower systems!
+      prepare_cycle_audio_out_int (xfr->user_data);
+    }
 }
 
 static void LIBUSB_CALL
@@ -437,7 +498,7 @@ cb_xfr_midi_in (struct libusb_transfer *xfr)
     }
 
 end:
-  prepare_cycle_in_midi (engine);
+  prepare_cycle_midi_in (engine);
 }
 
 static void LIBUSB_CALL
@@ -451,55 +512,48 @@ cb_xfr_midi_out (struct libusb_transfer *xfr)
 
   if (xfr->status != LIBUSB_TRANSFER_COMPLETED)
     {
-      error_print ("Error on USB MIDI out transfer: %s\n",
-		   libusb_strerror (xfr->status));
+      error_print ("Error on transfer: %s\n", libusb_strerror (xfr->status));
     }
 }
 
 static void
-prepare_cycle_out_audio (struct ow_engine *engine)
+prepare_cycle_audio_out_int (struct ow_engine *engine)
 {
-  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
-    {
-      libusb_fill_interrupt_transfer (engine->usb.xfr_audio_out,
-				      engine->usb.device_handle, AUDIO_OUT_EP,
-				      engine->usb.xfr_audio_out_data,
-				      engine->usb.xfr_audio_out_data_len,
-				      cb_xfr_audio_out, engine, XFR_TIMEOUT);
-    }
+  libusb_fill_interrupt_transfer (engine->usb.xfr_audio_out_int,
+				  engine->usb.device_handle, AUDIO_OUT_EP,
+				  engine->usb.xfr_audio_out_data,
+				  engine->usb.xfr_audio_out_data_len,
+				  cb_xfr_audio_out, engine, XFR_TIMEOUT);
 
-  int err = libusb_submit_transfer (engine->usb.xfr_audio_out);
+  int err = libusb_submit_transfer (engine->usb.xfr_audio_out_int);
   if (err)
     {
-      error_print ("p2o: Error when submitting USB audio transfer: %s\n",
+      error_print ("p2o: Error when submitting transfer: %s\n",
 		   libusb_strerror (err));
       ow_engine_set_status (engine, OW_ENGINE_STATUS_ERROR);
     }
 }
 
 static void
-prepare_cycle_in_audio (struct ow_engine *engine)
+prepare_cycle_audio_in_int (struct ow_engine *engine)
 {
-  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
-    {
-      libusb_fill_interrupt_transfer (engine->usb.xfr_audio_in,
-				      engine->usb.device_handle, AUDIO_IN_EP,
-				      engine->usb.xfr_audio_in_data,
-				      engine->usb.xfr_audio_in_data_len,
-				      cb_xfr_audio_in, engine, XFR_TIMEOUT);
-    }
+  libusb_fill_interrupt_transfer (engine->usb.xfr_audio_in_int,
+				  engine->usb.device_handle, AUDIO_IN_EP,
+				  engine->usb.xfr_audio_in_data,
+				  engine->usb.xfr_audio_in_data_len,
+				  cb_xfr_audio_in, engine, XFR_TIMEOUT);
 
-  int err = libusb_submit_transfer (engine->usb.xfr_audio_in);
+  int err = libusb_submit_transfer (engine->usb.xfr_audio_in_int);
   if (err)
     {
-      error_print ("o2p: Error when submitting USB audio in transfer: %s\n",
+      error_print ("o2p: Error when submitting transfer: %s\n",
 		   libusb_strerror (err));
       ow_engine_set_status (engine, OW_ENGINE_STATUS_ERROR);
     }
 }
 
 static void
-prepare_cycle_in_midi (struct ow_engine *engine)
+prepare_cycle_midi_in (struct ow_engine *engine)
 {
   libusb_fill_bulk_transfer (engine->usb.xfr_midi_in,
 			     engine->usb.device_handle, MIDI_IN_EP,
@@ -510,7 +564,7 @@ prepare_cycle_in_midi (struct ow_engine *engine)
   int err = libusb_submit_transfer (engine->usb.xfr_midi_in);
   if (err)
     {
-      error_print ("o2p: Error when submitting USB MIDI transfer: %s\n",
+      error_print ("o2p: Error when submitting transfer: %s\n",
 		   libusb_strerror (err));
       ow_engine_set_status (engine, OW_ENGINE_STATUS_ERROR);
     }
@@ -528,7 +582,7 @@ prepare_cycle_out_midi (struct ow_engine *engine)
   int err = libusb_submit_transfer (engine->usb.xfr_midi_out);
   if (err)
     {
-      error_print ("p2o: Error when submitting USB MIDI transfer: %s\n",
+      error_print ("p2o: Error when submitting transfer: %s\n",
 		   libusb_strerror (err));
       ow_engine_set_status (engine, OW_ENGINE_STATUS_ERROR);
     }
@@ -1035,6 +1089,7 @@ run_p2o_midi (void *data)
 static void *
 run_audio_o2p_midi (void *data)
 {
+  int err;
   size_t rsp2o, bytes;
   struct ow_engine *engine = data;
 
@@ -1042,12 +1097,34 @@ run_audio_o2p_midi (void *data)
 
   //status == OW_ENGINE_STATUS_BOOT
 
-  //Both these calls always need to be called and can not be skipped.
-  prepare_cycle_in_audio (engine);
-  prepare_cycle_out_audio (engine);
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+    {
+      for (int i = 0; i < OW_ISO_XFERS; i++)
+	{
+	  err = libusb_submit_transfer (engine->usb.xfr_audio_out_iso[i]);
+	  if (err)
+	    {
+	      error_print
+		("Error while submitting audio iso out transfer: %s\n",
+		 libusb_strerror (err));
+	    }
+	  err = libusb_submit_transfer (engine->usb.xfr_audio_in_iso[i]);
+	  if (err)
+	    {
+	      error_print
+		("Error while submitting audio iso in transfer: %s\n",
+		 libusb_strerror (err));
+	    }
+	}
+    }
+  else
+    {
+      prepare_cycle_audio_in_int (engine);
+      prepare_cycle_audio_out_int (engine);
+    }
   if (engine->context->options & OW_ENGINE_OPTION_O2P_MIDI)
     {
-      prepare_cycle_in_midi (engine);
+      prepare_cycle_midi_in (engine);
     }
 
   while (1)
