@@ -289,7 +289,7 @@ ow_get_usb_device_list (struct ow_usb_device **devices, size_t *size)
   return 0;
 }
 
-static void
+static int
 ow_set_usb_interfaces_and_alt_settings (struct ow_device_desc *device_desc)
 {
   if (device_desc->type == OW_TYPE_OVERBRIDGE_V1)
@@ -298,14 +298,19 @@ ow_set_usb_interfaces_and_alt_settings (struct ow_device_desc *device_desc)
       device_desc->audio_as_1 = 4;
       device_desc->audio_if_2 = 1;
       device_desc->audio_as_2 = 4;
+      return 0;
     }
-  else if (device_desc->type == OW_TYPE_OVERBRIDGE_V2)
+
+  if (device_desc->type == OW_TYPE_OVERBRIDGE_V2)
     {
       device_desc->audio_if_1 = 1;
       device_desc->audio_as_1 = 3;
       device_desc->audio_if_2 = 2;
       device_desc->audio_as_2 = 3;
+      return 0;
     }
+
+  return -EINVAL;
 }
 
 void
@@ -340,7 +345,7 @@ ow_get_device_desc_from_vid_pid (uint16_t vid, uint16_t pid,
   int err;
   if (vid != ELEKTRON_VID)
     {
-      return 1;
+      return -EINVAL;
     }
 
 #if defined(JSON_DEVS_FILE) && !defined(OW_TESTING)
@@ -549,20 +554,24 @@ cleanup_parser:
   g_free (devices_filename);
 
 #else
-  err = 1;
+  err = -ENODEV;
   for (const struct ow_device_desc_static ** d = OB_DEVICE_DESCS; *d != NULL;
        d++)
     {
       if ((*d)->pid == pid)
 	{
 	  ow_copy_device_desc_static (device_desc, *d);
-          err = 0;
+	  err = 0;
 	  break;
 	}
     }
 #endif
 
-  ow_set_usb_interfaces_and_alt_settings (device_desc);
+  if (!err)
+    {
+      err = ow_set_usb_interfaces_and_alt_settings (device_desc);
+    }
+
   return err;
 }
 
