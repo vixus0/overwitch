@@ -48,6 +48,9 @@
 
 #define INT32_TO_FLOAT32_SCALE ((float) (1.0f / INT_MAX))
 
+#define BLK_HEADER_IN  ((uint16_t) htobe16 (0x0700))
+#define BLK_HEADER_OUT ((uint16_t) htobe16 (0x07ff))
+
 static void prepare_cycle_audio_in_int ();
 static void prepare_cycle_audio_out_int ();
 static void prepare_cycle_midi_in ();
@@ -197,6 +200,10 @@ ow_engine_read_usb_input_blocks (struct ow_engine *engine)
   for (int i = 0; i < engine->blocks_per_transfer; i++)
     {
       blk = GET_NTH_INPUT_USB_BLK (engine, i);
+      if (blk->header != BLK_HEADER_IN)
+	{
+	  error_print ("o2p: Unexpected block header\n");
+	}
       s = blk->data;
       for (int j = 0; j < OB_FRAMES_PER_BLOCK; j++)
 	{
@@ -660,7 +667,7 @@ ow_engine_init_mem (struct ow_engine *engine,
   for (int i = 0; i < engine->blocks_per_transfer; i++)
     {
       blk = GET_NTH_OUTPUT_USB_BLK (engine, i);
-      blk->header = htobe16 (0x07ff);
+      blk->header = BLK_HEADER_OUT;
     }
 
   engine->p2o_transfer_buf = malloc (engine->p2o_transfer_size);
