@@ -394,16 +394,6 @@ cb_xfr_audio_in (struct libusb_transfer *xfr)
 	  error_print ("o2p: Incomplete transfer (%d B < %d B)\n",
 		       xfr->length, xfr->actual_length);
 	}
-
-      if (engine->context->options & OW_ENGINE_OPTION_O2P_AUDIO)
-	{
-	  set_usb_input_data_blks (engine);
-	}
-
-      if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
-	{
-	  libusb_submit_transfer (xfr);
-	}
     }
   else
     {
@@ -411,7 +401,16 @@ cb_xfr_audio_in (struct libusb_transfer *xfr)
 		   libusb_error_name (xfr->status));
     }
 
-  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
+  if (engine->context->options & OW_ENGINE_OPTION_O2P_AUDIO)
+    {
+      set_usb_input_data_blks (engine);
+    }
+
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
+    {
+      libusb_submit_transfer (xfr);
+    }
+  else
     {
       // start new cycle even if this one did not succeed
       prepare_cycle_audio_in_int (xfr->user_data);
@@ -430,11 +429,6 @@ cb_xfr_audio_out (struct libusb_transfer *xfr)
 	  error_print ("p2o: Incomplete transfer (%d B < %d B)\n",
 		       xfr->length, xfr->actual_length);
 	}
-      if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
-	{
-	  set_usb_output_data_blks (xfr->user_data);
-	  libusb_submit_transfer (xfr);
-	}
     }
   else
     {
@@ -442,11 +436,15 @@ cb_xfr_audio_out (struct libusb_transfer *xfr)
 		   libusb_error_name (xfr->status));
     }
 
-  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V2)
+  set_usb_output_data_blks (xfr->user_data);
+  // We have to make sure that the out cycle is always started after its callback
+  // Race condition on slower systems!
+  if (engine->device_desc.type == OW_TYPE_OVERBRIDGE_V1)
     {
-      set_usb_output_data_blks (xfr->user_data);
-      // We have to make sure that the out cycle is always started after its callback
-      // Race condition on slower systems!
+      libusb_submit_transfer (xfr);
+    }
+  else
+    {
       prepare_cycle_audio_out_int (xfr->user_data);
     }
 }
