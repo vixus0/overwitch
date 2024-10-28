@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.dagargo.overwitch</id>
+
+  <name>Overwitch</name>
+  <summary>Overbridge 2 device client for JACK</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+
+  <description>
+    <p>
+      Overwitch is an Overbridge 2 device client for JACK (JACK Audio Connection Kit).
+    </p>
+    <p>
+      At the moment, it provides support for all Overbridge 2 devices, which are Analog Four MKII, Analog Rytm MKII, Digitakt, Digitone, Digitone Keys, Analog Heat, Analog Heat MKII and Syntakt.
+    </p>
+    <p>
+      Overbridge 1 devices, which are Analog Four MKI, Analog Keys and Analog Rytm MKI, are not supported yet.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.dagargo.Overwitch.desktop</launchable>
+</component>

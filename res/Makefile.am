@@ -8,6 +8,9 @@ endif
 desktopdir = $(datadir)/applications
 desktop_DATA = io.github.dagargo.Overwitch.desktop
 
+metainfodir = $(datadir)/metainfo
+metainfo_DATA = io.github.dagargo.Overwitch.metainfo.xml
+
 svgicondir = $(datarootdir)/icons/hicolor/scalable/apps
 svgicon_DATA = io.github.dagargo.Overwitch.svg io.github.dagargo.Overwitch-symbolic.svg
 
@@ -29,4 +32,5 @@ update-icon-cache:
 EXTRA_DIST = \
         $(res_DATA) \
         $(desktop_DATA) \
+        $(metainfo_DATA) \
         $(svgicon_DATA)
